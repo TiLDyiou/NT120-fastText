@@ -1,0 +1,143 @@
+{
+  "config": {
+    "data": "data_ft.csv",
+    "train_data": null,
+    "val_data": null,
+    "challenge_data": null,
+    "embeddings": "cc.vi.300.vec.gz",
+    "text_col": "text_clean",
+    "emotion_col": "emotion",
+    "toxicity_col": "toxicity",
+    "split_col": "split",
+    "seed": 2,
+    "name": "bigru_fasttext",
+    "out_root": "runs",
+    "max_len": 0,
+    "min_freq": 1,
+    "epochs": 30,
+    "patience": 4,
+    "batch_size": 64,
+    "lr": 0.001,
+    "units": 128,
+    "filters": 128,
+    "dropout": 0.3,
+    "freeze": false,
+    "no_class_weight": false,
+    "eval_challenge": false,
+    "predict": null,
+    "text": null
+  },
+  "best_epoch": 1,
+  "val": {
+    "n": 7684,
+    "emotion": {
+      "macro_f1": 0.6756819159346904,
+      "ece": 0.032683776232924434,
+      "report": {
+        "negative": {
+          "precision": 0.5300642148277875,
+          "recall": 0.5601480567550895,
+          "f1-score": 0.5446910617876425,
+          "support": 1621.0
+        },
+        "neutral": {
+          "precision": 0.7575236457437661,
+          "recall": 0.7178164041281913,
+          "f1-score": 0.7371356853995259,
+          "support": 3682.0
+        },
+        "positive": {
+          "precision": 0.7300564061240935,
+          "recall": 0.7610247795044099,
+          "f1-score": 0.7452190006169032,
+          "support": 2381.0
+        },
+        "accuracy": 0.6979437792816241,
+        "macro avg": {
+          "precision": 0.672548088898549,
+          "recall": 0.6796630801292302,
+          "f1-score": 0.6756819159346904,
+          "support": 7684.0
+        },
+        "weighted avg": {
+          "precision": 0.7010281700736409,
+          "recall": 0.6979437792816241,
+          "f1-score": 0.6990427180202587,
+          "support": 7684.0
+        }
+      },
+      "confusion": [
+        [
+          908,
+          456,
+          257
+        ],
+        [
+          626,
+          2643,
+          413
+        ],
+        [
+          179,
+          390,
+          1812
+        ]
+      ]
+    },
+    "toxicity": {
+      "macro_f1": 0.8128416095560114,
+      "ece": 0.08196892754942225,
+      "report": {
+        "non-toxic": {
+          "precision": 0.9584626755358463,
+          "recall": 0.9536696573025445,
+          "f1-score": 0.9560601592450605,
+          "support": 6799.0
+        },
+        "toxic": {
+          "precision": 0.6572361262241567,
+          "recall": 0.6824858757062147,
+          "f1-score": 0.6696230598669624,
+          "support": 885.0
+        },
+        "accuracy": 0.92243623112962,
+        "macro avg": {
+          "precision": 0.8078494008800015,
+          "recall": 0.8180777665043796,
+          "f1-score": 0.8128416095560114,
+          "support": 7684.0
+        },
+        "weighted avg": {
+          "precision": 0.9237690919672824,
+          "recall": 0.92243623112962,
+          "f1-score": 0.9230699415264743,
+          "support": 7684.0
+        }
+      },
+      "confusion": [
+        [
+          6484,
+          315
+        ],
+        [
+          281,
+          604
+        ]
+      ]
+    },
+    "false_positive_rate_by_emotion": {
+      "negative": {
+        "n": 903,
+        "fp_rate": 0.05094130675526024
+      },
+      "neutral": {
+        "n": 3641,
+        "fp_rate": 0.058500411974732214
+      },
+      "positive": {
+        "n": 2255,
+        "fp_rate": 0.02483370288248337
+      }
+    }
+  }
+}
