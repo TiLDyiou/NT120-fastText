@@ -2,7 +2,7 @@
 """
 Train Bi-GRU-LSTM-CNN + fastText 300d (nhánh 2 của đề tài NT120), 2 trục cùng lúc:
     - emotion  : Negative / Neutral / Positive   (3 lớp)
-    - toxicity : Non-toxic / Toxic               (2 lớp)
+    - toxicity : T0 / T1 / T2 / T3              (4 lớp)
 Một bộ "thân" dùng chung, 2 đầu ra (multi-task).
 
 Đầu vào:
@@ -12,8 +12,6 @@ Một bộ "thân" dùng chung, 2 đầu ra (multi-task).
 
 Ví dụ:
     python train_bigru_lstm_cnn.py --data data_ft.csv --embeddings cc.vi.300.vec.gz --seed 1
-    python train_bigru_lstm_cnn.py --train-data train.csv --val-data valid.csv --embeddings cc.vi.300.vec.gz
-    python train_bigru_lstm_cnn.py --predict runs/bigru_seed1 --text "dịch vụ tệ quá đồ lừa đảo"
 """
 import argparse
 import gzip
@@ -33,9 +31,8 @@ import keras
 from keras import layers
 
 EMO_NAMES = ["negative", "neutral", "positive"]
-TOX_NAMES = ["non-toxic", "toxic"]
+TOX_NAMES = ["T0_NonToxic", "T1_Unpolite", "T2_Insult", "T3_HateThreat"]
 
-# Hỗ trợ cả tên chữ lẫn mã số (-1/0/1 hoặc 0/1/2)
 EMO_MAP = {
     "negative": 0, "neg": 0, "neutral": 1, "neu": 1, "positive": 2, "pos": 2,
     "-1": 0, "-1.0": 0, -1: 0,
@@ -43,14 +40,13 @@ EMO_MAP = {
     "1": 2, "1.0": 2, 1: 2,
     "2": 2, "2.0": 2, 2: 2,
 }
-# Hỗ trợ cả 0/1 lẫn các mức 0, 1, 2, 3 (mức >=1 coi là toxic)
+
+# Ánh xạ nhãn Toxicity giữ nguyên 4 mức (0..3)
 TOX_MAP = {
-    "non-toxic": 0, "non_toxic": 0, "nontoxic": 0, "clean": 0,
-    "toxic": 1,
-    "0": 0, "0.0": 0, 0: 0,
-    "1": 1, "1.0": 1, 1: 1,
-    "2": 1, "2.0": 1, 2: 1,
-    "3": 1, "3.0": 1, 3: 1,
+    "0": 0, "0.0": 0, 0: 0, "non-toxic": 0, "non_toxic": 0, "nontoxic": 0, "clean": 0, "t0": 0,
+    "1": 1, "1.0": 1, 1: 1, "t1": 1,
+    "2": 2, "2.0": 2, 2: 2, "t2": 2,
+    "3": 3, "3.0": 3, 3: 3, "t3": 3,
 }
 SPLIT_MAP = {"train": "train", "val": "val", "valid": "val", "validation": "val", "dev": "val",
              "challenge": "challenge", "test": "challenge"}
@@ -68,7 +64,7 @@ def parse_dataframe(df, text_col, emo_col, tox_col, split_col=None):
         raise ValueError(f"Cột {emo_col}: có giá trị lạ {list(bad)} - cần sửa EMO_MAP")
     df["y_emotion"] = ids_e.astype(int)
 
-    # Map toxicity
+    # Map toxicity (4 mức)
     ids_t = df[tox_col].astype(str).str.strip().str.lower().map(TOX_MAP)
     if ids_t.isna().any():
         bad = df.loc[ids_t.isna(), tox_col].unique()[:5]
@@ -120,13 +116,11 @@ def encode(texts, vocab, max_len):
 
 # ----------------------------------------------------------------------------- fastText
 def build_embedding_matrix(path, vocab, word_freq, dim, seed, out_dir):
-    """Đọc file .vec theo dòng (không nạp cả file vào RAM), chỉ giữ từ có trong vocab.
-    Từ ghép 'dịch_vụ' không có trong fastText -> lấy trung bình vector các âm tiết 'dịch','vụ'."""
     rng = np.random.default_rng(seed)
     emb = rng.normal(0, 0.1, (len(vocab), dim)).astype("float32")
     emb[0] = 0.0
     if not path or not Path(path).exists():
-        print(f"!! Không tìm thấy --embeddings ({path}): dùng vector ngẫu nhiên (chỉ để test, kết quả sẽ thấp)")
+        print(f"!! Không tìm thấy --embeddings ({path}): dùng vector ngẫu nhiên")
         return emb
 
     syll = {p for w in vocab if "_" in w for p in w.split("_") if p}
@@ -134,7 +128,7 @@ def build_embedding_matrix(path, vocab, word_freq, dim, seed, out_dir):
     found = {}
     opener = gzip.open if str(path).endswith(".gz") else open
     with opener(path, "rt", encoding="utf-8", errors="ignore") as f:
-        f.readline()                                        # dòng đầu: "<số từ> <số chiều>"
+        f.readline()
         for line in f:
             word, _, rest = line.partition(" ")
             if word in targets:
@@ -144,7 +138,7 @@ def build_embedding_matrix(path, vocab, word_freq, dim, seed, out_dir):
                     if len(found) == len(targets):
                         break
 
-    direct = via_syll = oov = 0                             # đếm theo LƯỢT XUẤT HIỆN
+    direct = via_syll = oov = 0
     oov_words = []
     for w, idx in vocab.items():
         if idx < 2:
@@ -158,12 +152,10 @@ def build_embedding_matrix(path, vocab, word_freq, dim, seed, out_dir):
             oov += f_; oov_words.append((w, f_))
 
     tot = direct + via_syll + oov
-    print(f"Phủ fastText (theo lượt xuất hiện trong train): trực tiếp {direct/tot:.1%} | "
-          f"qua âm tiết {via_syll/tot:.1%} | OOV {oov/tot:.1%}")
+    print(f"Phủ fastText: trực tiếp {direct/tot:.1%} | qua âm tiết {via_syll/tot:.1%} | OOV {oov/tot:.1%}")
     oov_words.sort(key=lambda x: -x[1])
     (Path(out_dir) / "oov_top.txt").write_text(
         "\n".join(f"{w}\t{c}" for w, c in oov_words[:200]), encoding="utf-8")
-    print("  -> 200 từ OOV phổ biến nhất lưu ở oov_top.txt")
     return emb
 
 
@@ -174,18 +166,21 @@ def build_model(emb, max_len, freeze, units, filters, dropout, lr):
                          embeddings_initializer=keras.initializers.Constant(emb),
                          trainable=not freeze)(inp)
     x = layers.SpatialDropout1D(dropout)(x)
-    x = layers.Bidirectional(layers.GRU(units, return_sequences=True))(x)   # Bi-GRU
-    x = layers.LSTM(units, return_sequences=True)(x)                        # LSTM
-    x = layers.Conv1D(filters, 3, padding="same", activation="relu")(x)     # CNN
+    x = layers.Bidirectional(layers.GRU(units, return_sequences=True))(x)
+    x = layers.LSTM(units, return_sequences=True)(x)
+    x = layers.Conv1D(filters, 3, padding="same", activation="relu")(x)
     x = layers.Concatenate()([layers.GlobalMaxPooling1D()(x), layers.GlobalAveragePooling1D()(x)])
     x = layers.Dropout(dropout)(x)
     x = layers.Dense(64, activation="relu")(x)
+    
+    # Đầu ra Toxicity 4 lớp
     out = {"emotion": layers.Dense(3, activation="softmax", name="emotion")(x),
-           "toxicity": layers.Dense(2, activation="softmax", name="toxicity")(x)}
+           "toxicity": layers.Dense(4, activation="softmax", name="toxicity")(x)}
+    
     model = keras.Model(inp, out)
     model.compile(optimizer=keras.optimizers.Adam(lr),
-                   loss={"emotion": "sparse_categorical_crossentropy",
-                         "toxicity": "sparse_categorical_crossentropy"})
+                  loss={"emotion": "sparse_categorical_crossentropy",
+                        "toxicity": "sparse_categorical_crossentropy"})
     return model
 
 
@@ -196,7 +191,6 @@ def unpack(pred):
 
 
 class BestMacroF1(keras.callbacks.Callback):
-    """Sau mỗi epoch: tính macro-F1 trên VAL, nhớ trọng số tốt nhất, tự giảm LR và dừng sớm khi hết cải thiện."""
     def __init__(self, X, ye, yt, patience, lr_patience=2, lr_factor=0.5, min_lr=1e-5):
         super().__init__()
         self.X, self.ye, self.yt = X, ye, yt
@@ -207,7 +201,7 @@ class BestMacroF1(keras.callbacks.Callback):
     def on_epoch_end(self, epoch, logs=None):
         pe, pt = unpack(self.model.predict(self.X, batch_size=256, verbose=0))
         fe = f1_score(self.ye, pe.argmax(1), average="macro", labels=[0, 1, 2], zero_division=0)
-        ft = f1_score(self.yt, pt.argmax(1), average="macro", labels=[0, 1], zero_division=0)
+        ft = f1_score(self.yt, pt.argmax(1), average="macro", labels=[0, 1, 2, 3], zero_division=0)
         score = (fe + ft) / 2
         print(f"    val macro-F1: emotion={fe:.4f}  toxicity={ft:.4f}  trung bình={score:.4f}")
 
@@ -220,7 +214,6 @@ class BestMacroF1(keras.callbacks.Callback):
         else:
             self.wait += 1
             self.wait_lr += 1
-            # Tự động giảm Learning Rate nếu macro-F1 không tăng sau lr_patience epoch
             if self.wait_lr >= self.lr_patience:
                 try:
                     curr_lr = float(self.model.optimizer.learning_rate.numpy())
@@ -259,30 +252,36 @@ def evaluate(model, df_split, X, name, out_dir):
                     "report": classification_report(ye, ae, labels=[0, 1, 2], target_names=EMO_NAMES,
                                                     output_dict=True, zero_division=0),
                     "confusion": confusion_matrix(ye, ae, labels=[0, 1, 2]).tolist()},
-        "toxicity": {"macro_f1": f1_score(yt, at, average="macro", labels=[0, 1], zero_division=0),
+        "toxicity": {"macro_f1": f1_score(yt, at, average="macro", labels=[0, 1, 2, 3], zero_division=0),
                      "ece": ece(pt, yt),
-                     "report": classification_report(yt, at, labels=[0, 1], target_names=TOX_NAMES,
+                     "report": classification_report(yt, at, labels=[0, 1, 2, 3], target_names=TOX_NAMES,
                                                      output_dict=True, zero_division=0),
-                     "confusion": confusion_matrix(yt, at, labels=[0, 1]).tolist()},
+                     "confusion": confusion_matrix(yt, at, labels=[0, 1, 2, 3]).tolist()},
     }
+    # Tỷ lệ gán nhầm Toxic (đoán khác T0) trên các bình luận không độc hại gốc (T0) theo nhóm Cảm xúc
     fp = {}
     for i, en in enumerate(EMO_NAMES):
         m = (yt == 0) & (ye == i)
-        fp[en] = {"n": int(m.sum()), "fp_rate": float((at[m] == 1).mean()) if m.any() else None}
+        fp[en] = {"n": int(m.sum()), "fp_rate": float((at[m] != 0).mean()) if m.any() else None}
     res["false_positive_rate_by_emotion"] = fp
     print(f"\n===== ĐÁNH GIÁ TẬP {name.upper()} (n={len(ye)}) =====")
     print(f"Emotion : macro-F1 {res['emotion']['macro_f1']:.4f} | ECE {res['emotion']['ece']:.4f}")
     print(f"Toxicity: macro-F1 {res['toxicity']['macro_f1']:.4f} | ECE {res['toxicity']['ece']:.4f}")
-    print("Tỉ lệ báo nhầm toxic (trên bình luận non-toxic) theo cảm xúc:",
+    print("Tỉ lệ báo nhầm toxic (trên bình luận T0) theo cảm xúc:",
           {k: (None if v['fp_rate'] is None else round(v['fp_rate'], 3)) for k, v in fp.items()})
-    print(classification_report(yt, at, labels=[0, 1], target_names=TOX_NAMES, zero_division=0))
+    print(classification_report(yt, at, labels=[0, 1, 2, 3], target_names=TOX_NAMES, zero_division=0))
+    
     keep = [c for c in ["id", "text", "text_clean", "tox_level", "ambiguous", "annotator", "source"]
             if c in df_split.columns]
     out = df_split[keep].copy()
     out["y_emotion"], out["pred_emotion"] = ye, ae
     for i, en in enumerate(EMO_NAMES):
         out[f"p_{en}"] = pe[:, i]
-    out["y_toxicity"], out["pred_toxicity"], out["p_toxic"] = yt, at, pt[:, 1]
+        
+    out["y_toxicity"], out["pred_toxicity"] = yt, at
+    for i, tn in enumerate(TOX_NAMES):
+        out[f"p_{tn}"] = pt[:, i]
+        
     out.to_csv(Path(out_dir) / f"preds_{name}.csv", index=False, encoding="utf-8-sig")
     return res
 
@@ -298,26 +297,26 @@ def predict_text(run_dir, texts):
     pe, pt = unpack(model.predict(X, verbose=0))
     for t, c, e, k in zip(texts, cleaned, pe, pt):
         print(f"\n{t}\n  (sau xử lý: {c})")
-        print(f"  Emotion : {EMO_NAMES[e.argmax()]:<9} {dict(zip(EMO_NAMES, [round(float(x), 3) for x in e]))}")
-        print(f"  Toxicity: {TOX_NAMES[k.argmax()]:<9} P(toxic)={k[1]:.3f}")
+        print(f"  Emotion : {EMO_NAMES[e.argmax()]:<15} {dict(zip(EMO_NAMES, [round(float(x), 3) for x in e]))}")
+        print(f"  Toxicity: {TOX_NAMES[k.argmax()]:<15} {dict(zip(TOX_NAMES, [round(float(x), 3) for x in k]))}")
 
 
 # ----------------------------------------------------------------------------- main
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--data", help="đường dẫn file CSV gộp (chứa cả train/val)")
-    ap.add_argument("--train-data", help="đường dẫn file train riêng (nếu không dùng --data)")
-    ap.add_argument("--val-data", help="đường dẫn file val riêng (nếu không dùng --data)")
-    ap.add_argument("--challenge-data", help="đường dẫn file challenge riêng (nếu có)")
+    ap.add_argument("--data", help="đường dẫn file CSV gộp")
+    ap.add_argument("--train-data", help="đường dẫn file train riêng")
+    ap.add_argument("--val-data", help="đường dẫn file val riêng")
+    ap.add_argument("--challenge-data", help="đường dẫn file challenge riêng")
     ap.add_argument("--embeddings", help="cc.vi.300.vec hoặc cc.vi.300.vec.gz")
     ap.add_argument("--text-col", default="text_clean")
     ap.add_argument("--emotion-col", default="emotion")
     ap.add_argument("--toxicity-col", default="toxicity")
     ap.add_argument("--split-col", default="split")
     ap.add_argument("--seed", type=int, default=1)
-    ap.add_argument("--name", default="bigru")
+    ap.add_argument("--name", default="bigru_fasttext")
     ap.add_argument("--out-root", default="runs")
-    ap.add_argument("--max-len", type=int, default=0, help="0 = tự chọn theo phân vị 95")
+    ap.add_argument("--max-len", type=int, default=0)
     ap.add_argument("--min-freq", type=int, default=1)
     ap.add_argument("--epochs", type=int, default=30)
     ap.add_argument("--patience", type=int, default=4)
@@ -326,7 +325,7 @@ def main():
     ap.add_argument("--units", type=int, default=128)
     ap.add_argument("--filters", type=int, default=128)
     ap.add_argument("--dropout", type=float, default=0.3)
-    ap.add_argument("--freeze", action="store_true", help="đóng băng embedding")
+    ap.add_argument("--freeze", action="store_true")
     ap.add_argument("--no-class-weight", action="store_true")
     ap.add_argument("--eval-challenge", action="store_true")
     ap.add_argument("--predict", help="thư mục run đã train")
@@ -338,7 +337,7 @@ def main():
         return
 
     if not a.data and not (a.train_data and a.val_data):
-        ap.error("Cần cung cấp --data (file gộp) hoặc cả --train-data và --val-data")
+        ap.error("Cần cung cấp --data hoặc cả --train-data và --val-data")
 
     keras.utils.set_random_seed(a.seed)
     out_dir = Path(a.out_root) / f"{a.name}_seed{a.seed}"
@@ -359,22 +358,21 @@ def main():
     vocab, freq = build_vocab(tr[a.text_col], a.min_freq)
     lens = tr[a.text_col].map(lambda t: len(t.split()))
     max_len = a.max_len or int(np.clip(np.percentile(lens, 95), 20, 128))
-    print(f"Kích thước từ điển vocab={len(vocab)} | max_len={max_len}")
+    print(f"Kích thước vocab={len(vocab)} | max_len={max_len}")
     emb = build_embedding_matrix(a.embeddings, vocab, freq, 300, a.seed, out_dir)
 
     Xtr, Xva = encode(tr[a.text_col], vocab, max_len), encode(va[a.text_col], vocab, max_len)
     ytr = {"emotion": tr.y_emotion.values, "toxicity": tr.y_toxicity.values}
+    
     sw = None
     if not a.no_class_weight:
         sw = {}
-        for key, n in [("emotion", 3), ("toxicity", 2)]:
+        for key, n in [("emotion", 3), ("toxicity", 4)]:
             cw = compute_class_weight("balanced", classes=np.arange(n), y=ytr[key])
             sw[key] = cw[ytr[key]].astype("float32")
-        print("Class weight toxicity:", np.round(compute_class_weight("balanced", classes=np.arange(2),
-                                                                     y=ytr["toxicity"]), 2))
+        print("Class weights Toxicity (4 mức):", np.round(compute_class_weight("balanced", classes=np.arange(4), y=ytr["toxicity"]), 2))
 
     model = build_model(emb, max_len, a.freeze, a.units, a.filters, a.dropout, a.lr)
-    model.summary(print_fn=lambda s: None)
     cb = BestMacroF1(Xva, va.y_emotion.values, va.y_toxicity.values, a.patience)
     model.fit(Xtr, ytr, sample_weight=sw, epochs=a.epochs, batch_size=a.batch_size, callbacks=[cb], verbose=2)
     if cb.best_w is not None:

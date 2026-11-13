@@ -4,14 +4,14 @@ Tiền xử lý dataset cho nhánh  fastText 300d + Bi-GRU-LSTM-CNN  (đề tài
 
 Đọc 1 file CSV có cột văn bản thô -> ghi ra CSV mới có thêm cột `text_clean`.
 
-Thứ tự các bước:
+Thứ tự các bước (khác file mô tả của nhóm ở CHỖ ĐÁNH DẤU (*), lý do ghi ở cuối file):
     0. Chuẩn hóa Unicode NFC, thay URL
-    3. Emoticon gõ phím -> emoji  (giữ nguyên emoji, KHÔNG đổi thành emo_xxx)
+ (*)3. Emoticon gõ phím -> emoji  (giữ nguyên emoji, KHÔNG đổi thành emo_xxx)
     1. Rút gọn ký tự kéo dài  +  xóa ký tự chèn để lách luật (đ.m -> đm)
     2. Chuẩn hóa teencode / viết tắt / chửi thề
     6. Tách từ tiếng Việt (pyvi)
     4. Hạ chữ thường
-    (bỏ bước ghép cụm phủ định theo đúng yêu cầu thiết kế của nhánh mô hình này)
+    (bỏ bước 5 - ghép cụm phủ định - theo đúng yêu cầu của nhánh này)
 
 Chạy thử:   python preprocess_fasttext.py --demo
 Chạy thật:  python preprocess_fasttext.py --input data.csv --output data_ft.csv --text-col text
@@ -62,32 +62,25 @@ EMOTICONS = [(re.compile(p), f" {e} ") for p, e in EMOTICONS]
 
 # --------------------------------------------------------------------------
 # Bước 2: teencode / viết tắt / chửi thề  ->  từ gốc.
-# Mở rộng dựa trên phân tích lỗi OOV từ dữ liệu mạng xã hội thực tế
+# Đây là BẢN KHỞI ĐẦU. Hãy mở rộng bằng cách liệt kê các token xuất hiện nhiều
+# nhất trong dữ liệu thật mà không có trong fastText (xem log OOV ở script train).
 # --------------------------------------------------------------------------
 TEENCODE = {
-    # Viết tắt phủ định
-    "k": "không", "ko": "không", "kg": "không", "khong": "không", "hok": "không",
-    "hông": "không", "hong": "không", "hơm": "không", "kh": "không", "khg": "không",
-    # Từ ngữ thông dụng
-    "dc": "được", "đc": "được", "đk": "được",
-    "vs": "với", "r": "rồi", "rùi": "rồi", "roi": "rồi",
+    # theo file mô tả của nhóm
+    "k": "không", "ko": "không", "kg": "không", "khong": "không", "hok": "không", "hông": "không",
+    "dc": "được", "đc": "được",
+    "vs": "với", "r": "rồi", "rùi": "rồi",
     "mik": "mình", "mk": "mình", "ngta": "người ta", "vn": "việt nam",
-    "mn": "mọi người", "mng": "mọi người",
-    "a": "anh", "e": "em",
-    "bt": "biết", "bik": "biết", "biet": "biết", "bít": "biết",
-    "j": "gì", "gi": "gì", "ntn": "như thế nào", "trc": "trước", "truoc": "trước",
-    "sp": "sản phẩm", "cx": "cũng", "cg": "cũng",
-    "z": "vậy", "zay": "vậy", "zậy": "vậy", "vay": "vậy",
-    "thik": "thích", "thix": "thích", "wa": "quá", "wá": "quá", "qa": "quá", "qá": "quá",
+    "a": "anh", "e": "em",          # theo ví dụ của nhóm - DỄ NHẦM (a = "à"?) -> nên đo lại F1
+    "bt": "biết",                   # theo ví dụ của nhóm (cũng có thể là "bình thường")
+    # thường gặp
+    "j": "gì", "ntn": "như thế nào", "trc": "trước", "sp": "sản phẩm", "cx": "cũng", "cg": "cũng",
+    "z": "vậy", "bik": "biết", "biet": "biết", "thik": "thích", "thix": "thích", "wa": "quá", "wá": "quá",
     "ns": "nói", "đt": "điện thoại", "ad": "admin",
-    "fb": "facebook", "acc": "tài khoản", "stt": "trạng thái", "ib": "nhắn tin", "rep": "trả lời",
-    "lm": "làm", "ms": "mới", "mún": "muốn", "lun": "luôn", "thèng": "thằng", "chj": "chị",
-    "cđm": "cộng đồng mạng", "cdm": "cộng đồng mạng",
-    "oke": "ok", "okey": "ok", "tks": "cảm ơn", "thanks": "cảm ơn", "thx": "cảm ơn",
-    # Chửi thề & lách luật: gom các biến thể về dạng chuẩn
-    "vcl": "vãi cả lồn", "vkl": "vãi cả lồn", "vcll": "vãi cả lồn", "vl": "vãi lồn", "vc": "vãi cả",
-    "clgt": "cái lồn gì thế", "cl": "cái lồn", "cc": "cục cặc",
-    "dm": "đm", "đmm": "đm", "dmm": "đm", "đm": "đm", "dcm": "đm", "đcm": "đm", "đjt": "đm", "đệt": "đm",
+    # chửi thề: gom các biến thể về 1 dạng (theo đề mục Bước 2)
+    "vcl": "vãi cả lồn", "vkl": "vãi cả lồn", "vl": "vãi lồn", "vc": "vãi cả",
+    "clgt": "cái lồn gì thế",
+    "dm": "đm", "đmm": "đm", "dmm": "đm", "đm": "đm", "đjt": "đm",
 }
 _TEEN_RE = re.compile(
     r"(?<![\w\-])(" + "|".join(sorted(map(re.escape, TEENCODE), key=len, reverse=True)) + r")(?![\w\-])",
@@ -99,8 +92,7 @@ _L = r"[^\W\d_]"                                   # 1 chữ cái (kể cả có
 _URL = re.compile(r"https?://\S+|www\.\S+", re.I)
 _LAUGH = re.compile(r"(?<!\w)(?:k{3,}|h{3,}|(?:ha|he|hi|hu){2,})(?!\w)", re.I)   # kkkk, hhhh, hihi
 _EVADE = re.compile(rf"(?<!{_L})(?:{_L}[.\-*!_~|/\\+])+{_L}(?!{_L})")   # đ.m, l.ồ.n, d!m
-_PUNCT_COLLAPSE = re.compile(r"([?!.,;])\1+")      # ???? -> ?   .... -> .
-_PUNCT_SPACE = re.compile(r"([?!.,;])")            # Tách dấu câu để tránh dính chữ gây OOV
+_PUNCT = re.compile(r"([?!.,;])\1+")               # ???? -> ?   .... -> .
 _HYPHEN = re.compile(r"(\w) - (\w)")               # pyvi tách "k-atm" thành "k - atm" -> nối lại
 _SPACES = re.compile(r"\s+")
 
@@ -146,21 +138,20 @@ def clean(text, do_segment: bool = True) -> str:
         return ""
     t = unicodedata.normalize("NFC", text)
     t = _URL.sub(" url ", t)                                   # tránh ":/" trong link bị nhầm emoticon
-    for pat, emo in EMOTICONS:                                 # bước 3: emoticon -> emoji
+    for pat, emo in EMOTICONS:                                 # bước 3 (làm sớm - xem ghi chú cuối file)
         t = pat.sub(emo, t)
     t = t.replace("\ufe0f", "")                                # bỏ variation selector: ❤️ == ❤
     t = emoji.replace_emoji(t, lambda e, d: f" {e} ")          # tách emoji ra khỏi chữ dính liền
     t = _LAUGH.sub(" haha ", t)                                # "kkkk" là cười, đừng để thành "k" = "không"
-    t = collapse_repeats(t)                                    # bước 1a: rút gọn lặp ký tự
-    t = _EVADE.sub(lambda m: re.sub(r"[.\-*!_~|/\\+]", "", m.group(0)), t)   # bước 1b: xóa ký tự lách luật
-    t = _PUNCT_COLLAPSE.sub(r"\1", t)                          # gom dấu lặp
-    t = _PUNCT_SPACE.sub(r" \1 ", t)                           # tạo khoảng trống quanh dấu câu tránh dính từ
-    t = _TEEN_RE.sub(lambda m: TEENCODE[m.group(1).lower()], t)   # bước 2: chuẩn hóa teencode
+    t = collapse_repeats(t)                                    # bước 1a
+    t = _EVADE.sub(lambda m: re.sub(r"[.\-*!_~|/\\+]", "", m.group(0)), t)   # bước 1b
+    t = _PUNCT.sub(r"\1", t)
+    t = _TEEN_RE.sub(lambda m: TEENCODE[m.group(1).lower()], t)   # bước 2
     t = _SPACES.sub(" ", t).strip()
     if do_segment and t:
-        t = segment(t)                                         # bước 6: tách từ tiếng Việt
+        t = segment(t)                                         # bước 6
         t = _HYPHEN.sub(r"\1-\2", t)
-    return _SPACES.sub(" ", t.lower()).strip()                 # bước 4: hạ chữ thường
+    return _SPACES.sub(" ", t.lower()).strip()                 # bước 4
 
 
 DEMO = [
@@ -201,3 +192,13 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# ---------------------------------------------------------------------------
+# (*) Vì sao khác file mô tả của nhóm?
+# File nhóm ghi "bước 6 (tách từ) trước bước 3 (emoticon)". Khi thử thì pyvi BĂM emoticon:
+#     "=)))"  ->  "= ) ) )"      "T_T ^^ <3"  ->  "T_T ^ ^ < 3"
+# nên nếu tách từ trước thì không còn nhận ra emoticon nữa. Vì vậy phải đổi emoticon -> emoji
+# TRƯỚC khi tách từ (pyvi giữ nguyên emoji). Kết quả cuối vẫn đúng yêu cầu: giữ emoji, không emo_xxx.
+# Cũng vì lý do đó bước 1 (rút gọn/xóa ký tự chèn) làm SAU emoticon: "T.T" nếu bị xóa dấu chấm
+# sẽ thành "TT", còn ":)))" nếu bị rút gọn sẽ mất nghĩa.
+# ---------------------------------------------------------------------------
