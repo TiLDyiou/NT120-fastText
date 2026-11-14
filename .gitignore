@@ -1,2 +1,4 @@
 runs/*/*.keras
 *.keras
+.agents/
+skills/
