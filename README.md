@@ -27,7 +27,7 @@ Mô hình dùng vector từ tiếng Việt **fastText 300 chiều** (`cc.vi.300.
    - Vòng 3 (9 lần): chạy lại Top-3 cấu hình trên 3 seed độc lập (`1, 2, 3`) và chọn mô hình cuối bằng kiểm tra nhiễu seed kết hợp Paired Bootstrap 1.000 lần.
 5. Hiệu chuẩn độ tự tin bằng Temperature Scaling ($T$) và khảo sát hệ số điều chỉnh $\beta$ cho lớp hiếm trên tập `valid`.
 6. Huấn luyện lại cấu hình thắng (`R2_17`) trên toàn bộ `train + valid` (**37.230 bình luận**) với 3 seed độc lập (không gộp ensemble) và kiểm tra nạp lại từ đĩa khớp tuyệt đối.
-7. Đánh giá mù **đúng một lần duy nhất** trên tập `challenge` (**3.237 bình luận**) và viết báo cáo phân tích lỗi. Toàn bộ quy trình đều có 20 bài tự kiểm tra (unit test) đi kèm.
+7. Đánh giá mù **đúng một lần duy nhất** trên tập `challenge` (**3.237 bình luận**) và viết báo cáo phân tích lỗi. Toàn bộ quy trình đều có 21 bài tự kiểm tra (unit test) đi kèm.
 
 | Tên mô hình | Dữ liệu huấn luyện | Đặc điểm chính | Số tham số | Vị trí |
 | :--- | :--- | :--- | :---: | :--- |
@@ -130,9 +130,11 @@ Số đo Vòng 1 cho thấy ba điểm rất rõ:
 
 Bản v2 dùng công thức làm dịu có giới hạn trần cho lớp Toxicity $k \in \{0, 1, 2, 3\}$:
 
-$$w_k = \min\left( \left( \frac{N}{4 \cdot n_k} \right)^\alpha, \, \text{clip\_max} \right)$$
+$$
+w_k = \min\left( \left( \frac{N}{4 \cdot n_k} \right)^\alpha, \, C_{\max} \right)
+$$
 
-Với cấu hình thắng ($\alpha = 0,5$, $\text{clip\_max} = 10,0$), trọng số 4 lớp trên tập `train + valid` lần lượt là `0,53`, `1,84`, `2,55` và `6,15` (lớp 3 chỉ nặng gấp khoảng **11,5 lần** lớp 0 thay vì hơn 130 lần). Nhờ đó độ lệch chuẩn giữa 3 seed trên tập `challenge` giảm tới **~14 lần** (từ `0,0531` xuống `0,0037`). Trục Sentiment phân phối đều hơn nên giữ trọng số bằng 1.
+Với cấu hình thắng ($\alpha = 0,5$, trần trọng số $C_{\max} = 10,0$, tức `clip_max = 10.0` trong code), trọng số 4 lớp trên tập `train + valid` lần lượt là `0,53`, `1,84`, `2,55` và `6,15` (lớp 3 chỉ nặng gấp khoảng **11,5 lần** lớp 0 thay vì hơn 130 lần). Nhờ đó độ lệch chuẩn giữa 3 seed trên tập `challenge` giảm tới **~14 lần** (từ `0,0531` xuống `0,0037`). Trục Sentiment phân phối đều hơn nên giữ trọng số bằng 1.
 
 ### 6. Lịch học cố định và không dừng sớm
 
@@ -239,7 +241,7 @@ Chi tiết các ca lỗi trích trực tiếp từ dữ liệu xem thêm trong [
 │   ├── final_train.py         Phase 6: huấn luyện lại trên train+valid (3 seed)
 │   ├── evaluate_challenge.py  Phase 7: đánh giá mù challenge + đo Cold/Warm start
 │   └── utils/                 Cố định seed và ghi log JSONL
-├── tests/                     20 unit test kiểm chứng toàn bộ 7 Phase
+├── tests/                     21 unit test kiểm chứng toàn bộ 7 Phase
 ├── data/
 │   ├── train/train.csv        29.474 bình luận
 │   ├── valid/valid.csv        7.756 bình luận
@@ -343,7 +345,7 @@ df.to_csv("output.csv", index=False, encoding="utf-8-sig")
 
 ### Kiểm thử và chạy lại pipeline
 
-Chạy toàn bộ 20 bài tự kiểm tra (tự động kiểm tra lại logic xử lý chữ, padding-invariance, đóng mở gradient, chọn tham số, hiệu chuẩn và nạp mô hình):
+Chạy toàn bộ 21 bài tự kiểm tra (tự động kiểm tra lại logic xử lý chữ, padding-invariance, đóng mở gradient, chọn tham số, hiệu chuẩn và nạp mô hình):
 
 ```bash
 pytest tests -v
