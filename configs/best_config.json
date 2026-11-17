@@ -1,0 +1,58 @@
+{
+  "winner_config_id": "R2_17",
+  "config": {
+    "config_id": "R2_17",
+    "round_name": "round2",
+    "seed": 1,
+    "arch": "parallel",
+    "emb_mode": "open",
+    "freeze_epochs": 2,
+    "emb_lr_factor": 0.1,
+    "use_dense300": false,
+    "task_mode": "multi_task",
+    "loss_mode": "weighted_ce",
+    "w_tox": 1.0,
+    "alpha": 0.5,
+    "clip_max": 10.0,
+    "gamma": 2.0,
+    "lr": 0.001,
+    "epochs": 5,
+    "dropout": 0.5,
+    "hidden_units": 128,
+    "weight_decay": 0.0,
+    "batch_size": 64,
+    "max_grad_norm": 1.0,
+    "eta_min": 0.0
+  },
+  "round1_frame_source": "best_single (C1a) because C_comb=0.6298 < 0.6363",
+  "decision_reason": "Tie-break triggered; A has fewer trainable params.",
+  "ranked_summary": [
+    {
+      "config_id": "R2_17",
+      "mean_f1": 0.6449338585135956,
+      "std_f1": 0.004705674847962062,
+      "mean_sent_f1": 0.699300387586869,
+      "mean_tox_f1": 0.5905673294403223,
+      "trainable_params": 7045151,
+      "total_params": 7045151
+    },
+    {
+      "config_id": "R2_14",
+      "mean_f1": 0.6437634814166499,
+      "std_f1": 0.0014579238761597657,
+      "mean_sent_f1": 0.6931424740705664,
+      "mean_tox_f1": 0.5943844887627332,
+      "trainable_params": 7829791,
+      "total_params": 7829791
+    },
+    {
+      "config_id": "C1a",
+      "mean_f1": 0.6354824894547462,
+      "std_f1": 0.0008333906139249477,
+      "mean_sent_f1": 0.6968710522221714,
+      "mean_tox_f1": 0.5740939266873207,
+      "trainable_params": 7045151,
+      "total_params": 7045151
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+# Install PyTorch matching your CUDA/CPU first (Python 3.10-3.12 recommended on Windows for fasttext-wheel):
+#   GPU CUDA 12.6: pip install torch --index-url https://download.pytorch.org/whl/cu126
+#   CPU only     : pip install torch
+
+fasttext-wheel==0.9.2
+numpy>=1.26
+pandas>=2.2
+scikit-learn>=1.5
+scipy>=1.13
+tqdm>=4.66
+pyarrow>=16.0
+pytest>=8.0

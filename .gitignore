@@ -1,4 +1,24 @@
-runs/*/*.keras
-*.keras
-.agents/
-skills/
+# Local virtual environments & tools
+.venv/
+.python/
+.tools/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Huge pre-trained fastText binary (~6.7 GB) - download separately per README
+embeddings/*.bin
+embeddings/*.bin.gz
+embeddings/*.vec
+embeddings/*.vec.gz
+
+# Regenerable intermediate artifacts (~86 MB .npy matrices, built in ~15s by build_embeddings.py)
+artifacts/train/
+artifacts/trainV1/
+artifacts/full/
+
+# Redundant embedding_matrix.npy inside final_models (weights are already inside model_weights.pt)
+runs/final_models/*/embedding_matrix*.npy
+
+# Intermediate parquet files (regenerated in ~2s by data_prep.py from data/{train,valid,challenge}/*.csv)
+data/processed/

@@ -1,0 +1,62 @@
+{
+  "winner_config_id": "R2_17",
+  "seed": 1,
+  "model_config": {
+    "config_id": "R2_17",
+    "round_name": "final_train",
+    "seed": 1,
+    "arch": "parallel",
+    "emb_mode": "open",
+    "freeze_epochs": 2,
+    "emb_lr_factor": 0.1,
+    "use_dense300": false,
+    "task_mode": "multi_task",
+    "loss_mode": "weighted_ce",
+    "w_tox": 1.0,
+    "alpha": 0.5,
+    "clip_max": 10.0,
+    "gamma": 2.0,
+    "lr": 0.001,
+    "epochs": 5,
+    "dropout": 0.5,
+    "hidden_units": 128,
+    "weight_decay": 0.0,
+    "batch_size": 64,
+    "max_grad_norm": 1.0,
+    "eta_min": 0.0
+  },
+  "max_len_full": 54,
+  "vocab_size": 24805,
+  "num_full_train_rows": 37230,
+  "tox_counts_full": [
+    32806,
+    2745,
+    1433,
+    246
+  ],
+  "w_k_full": [
+    0.5326474905014038,
+    1.84138822555542,
+    2.548551559448242,
+    6.151045799255371
+  ],
+  "f_k_full": [
+    0.8811710985764168,
+    0.07373086220789686,
+    0.03849046467902229,
+    0.00660757453666398
+  ],
+  "t_bar_sent": 1.4695163841624617,
+  "t_bar_tox": 1.2857100104470687,
+  "beta_final": 0.0,
+  "tau_k": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+  ],
+  "trainable_params": 8030051,
+  "total_params": 8030051,
+  "train_seconds": 131.64990089999992,
+  "git_commit": "unknown"
+}
